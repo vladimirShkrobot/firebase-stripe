@@ -7,8 +7,10 @@ import {
 } from "@stripe/react-stripe-js";
 import { useApi } from "../../contexts/ApiContext";
 import { useUser } from "../../contexts/UserContext";
+import { useNavigate } from "react-router-dom";
 
 const PaymentWithSave: FC = () => {
+  const navigate = useNavigate();
   const stripe = useStripe();
   const elements = useElements();
   const { user } = useUser();
@@ -46,6 +48,8 @@ const PaymentWithSave: FC = () => {
       customerId,
       setupIntent.payment_method as string
     );
+
+    navigate("/");
   };
 
   return (

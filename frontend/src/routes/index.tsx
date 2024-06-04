@@ -4,6 +4,7 @@ import SignIn from "../pages/SignIn/SignIn";
 import SignUp from "../pages/SignUp/SignUp";
 import Payment from "../pages/Payment/Payment";
 import PaymentWithSave from "../pages/PaymentWithSave/PaymentWithSave";
+import Subscription from "../pages/Subscription/Subscription";
 
 export const router = createBrowserRouter([
   {
@@ -25,5 +26,10 @@ export const router = createBrowserRouter([
   {
     path: "/payment-with-save",
     element: <PaymentWithSave />,
+  },
+
+  {
+    path: "/subscription",
+    element: <Subscription />
   },
 ]);

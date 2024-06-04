@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request } from "express";
 import Stripe from "stripe";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -78,38 +78,117 @@ app.post("/save-payment-method", async (req, res) => {
   }
 });
 
-app.post("/create-payment-intent", async (req, res) => {
-  const { email, amount } = req.body;
-
-  try {
-    // Найдите клиента по email
-    const customers = await stripe.customers.list({ email });
-    const customer = customers.data[0];
+app.get(
+  "/get-payment-methods",
+  async (req: Request<{}, {}, {}, { email: string }>, res) => {
+    const { email } = req.query;
+    const customer = (await stripe.customers.list({ email })).data[0];
 
     if (!customer) {
-      throw new Error("Customer not found");
+      return res.status(404).send({ error: "Customer not found" });
     }
 
-    // Получите связанные методы оплаты
     const paymentMethods = await stripe.paymentMethods.list({
       customer: customer.id,
       type: "card",
     });
 
-    const paymentMethodId = paymentMethods.data[0].id;
+    const defaultPaymentMethodId =
+      customer.invoice_settings.default_payment_method;
+    res.send({
+      paymentMethods: paymentMethods.data,
+      defaultPaymentMethodId,
+    });
+  }
+);
 
-    // Создайте PaymentIntent и подтвердите его
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency: "usd",
-      customer: customer.id,
-      payment_method: paymentMethodId,
-      off_session: true,
-      confirm: true,
+app.get("/products", async (req, res) => {
+  try {
+    const products = await stripe.products.list({ limit: 100 });
+    const prices = await stripe.prices.list({ limit: 100 });
+
+    const productList = products.data.map((product) => {
+      const productPrices = prices.data.filter(
+        (price) => price.product === product.id
+      );
+      return {
+        ...product,
+        prices: productPrices,
+      };
     });
 
-    res.send({ success: true, paymentIntent });
+    res.send(productList);
   } catch (error: any) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
+app.get("/products", async (req, res) => {
+  try {
+    const products = await stripe.products.list({ limit: 100 });
+    const prices = await stripe.prices.list({ limit: 100 });
+
+    const productList = products.data.map((product) => {
+      const productPrices = prices.data.filter(
+        (price) => price.product === product.id
+      );
+      return {
+        ...product,
+        prices: productPrices,
+      };
+    });
+
+    res.send(productList);
+  } catch (error: any) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
+// Эндпоинт для подписки
+app.post("/subscribe", async (req, res) => {
+  const { email, paymentMethodId, priceId } = req.body;
+
+  try {
+    // Найдите клиента по email
+    let customers = await stripe.customers.list({
+      email,
+      limit: 1,
+    });
+    let customer = customers.data[0];
+
+    // Если клиента нет, создайте нового
+    if (!customer) {
+      customer = await stripe.customers.create({ email });
+    }
+
+    // Привяжите метод оплаты к клиенту
+    const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
+      customer: customer.id,
+    });
+
+    // Установите метод оплаты по умолчанию для клиента
+    await stripe.customers.update(customer.id, {
+      invoice_settings: {
+        default_payment_method: paymentMethod.id,
+      },
+    });
+
+    // Создайте подписку
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: priceId }],
+      default_payment_method: paymentMethod.id,
+      expand: ["latest_invoice.payment_intent"],
+    });
+
+    res.send({
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      customerId: customer.id,
+      paymentMethodId: paymentMethod.id,
+    });
+  } catch (error: any) {
+    console.log(error)
     res.status(500).send({ error: error.message });
   }
 });
