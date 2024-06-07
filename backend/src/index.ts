@@ -2,6 +2,7 @@ import express, { Request } from "express";
 import Stripe from "stripe";
 import cors from "cors";
 import dotenv from "dotenv";
+import { admin } from "../firebaseAdmin";
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
@@ -188,7 +189,7 @@ app.post("/subscribe", async (req, res) => {
       paymentMethodId: paymentMethod.id,
     });
   } catch (error: any) {
-    console.log(error)
+    console.log(error);
     res.status(500).send({ error: error.message });
   }
 });
